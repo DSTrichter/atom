@@ -7,7 +7,7 @@ const { Directory } = require('pathwatcher')
 const { stopAllWatchers } = require('../src/path-watcher')
 const GitRepository = require('../src/git-repository')
 
-describe('Project', () => {
+fdescribe('Project', () => {
   beforeEach(() => {
     const directory = atom.project.getDirectories()[0]
     const paths = directory ? [directory.resolve('dir')] : [null]
@@ -1056,18 +1056,23 @@ describe('Project', () => {
     afterEach(() => sub.dispose())
 
     const waitForEvents = paths => {
-      const remaining = new Set(paths.map(p => fs.realpathSync(p)))
+      const realPaths = paths.map(p => fs.realpathSync(p))
+      console.log('waiting for events on', realPaths)
+      const remaining = new Set(realPaths)
       return new Promise((resolve, reject) => {
         checkCallback = () => {
           for (let event of events) {
+            console.log('saw event on path', event.path)
             remaining.delete(event.path)
           }
           if (remaining.size === 0) {
+            clearTimeout(timeout)
             resolve()
           }
         }
 
         const expire = () => {
+          clearTimeout(interval)
           checkCallback = () => {}
           console.error('Paths not seen:', remaining)
           reject(
@@ -1075,8 +1080,8 @@ describe('Project', () => {
           )
         }
 
-        checkCallback()
-        setTimeout(expire, 2000)
+        const interval = setInterval(checkCallback, 100)
+        const timeout = setTimeout(expire, 2000)
       })
     }
 
@@ -1087,11 +1092,19 @@ describe('Project', () => {
       const dirTwo = temp.mkdirSync('atom-spec-project-two')
       const fileThree = path.join(dirTwo, 'file-three.txt')
 
+      console.log('A')
+
       await stopAllWatchers()
+
+      console.log('B')
 
       atom.project.setPaths([dirOne])
 
+      console.log('C')
+
       await atom.project.getWatcherPromise(dirOne)
+
+      console.log('D')
 
       expect(atom.project.watcherPromisesByPath[dirTwo]).toEqual(undefined)
 
@@ -1099,7 +1112,11 @@ describe('Project', () => {
       fs.writeFileSync(fileTwo, 'two\n')
       fs.writeFileSync(fileOne, 'one\n')
 
+      console.log('E')
+
       await waitForEvents([fileOne, fileTwo])
+
+      console.log('F')
 
       expect(events.some(event => event.path === fileThree)).toBeFalsy()
     })
